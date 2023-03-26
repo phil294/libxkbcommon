@@ -78,6 +78,8 @@ struct interactive_seat {
 
 static bool terminate;
 
+static struct xkb_keymap *first_found_keymap;
+
 #ifdef HAVE_MKOSTEMP
 static int
 create_tmpfile_cloexec(char *tmpname)
@@ -371,6 +373,9 @@ kbd_keymap(void *data, struct wl_keyboard *wl_kbd, uint32_t format,
         fprintf(stderr, "Failed to create XKB state!\n");
         return;
     }
+
+    first_found_keymap = seat->keymap;
+    terminate = true;
 }
 
 static void
@@ -668,20 +673,11 @@ dpy_disconnect(struct interactive_dpy *inter)
     wl_display_disconnect(inter->dpy);
 }
 
-int
-main(int argc, char *argv[])
+struct xkb_keymap*
+xkb_custom_wayland_get_keymap()
 {
-    int ret;
     struct interactive_dpy inter;
     struct wl_registry *registry;
-
-    if (argc != 1) {
-        ret = strcmp(argv[1], "--help");
-        fprintf(ret ? stderr : stdout, "Usage: %s [--help]\n", argv[0]);
-        if (ret)
-            fprintf(stderr, "unrecognized option: %s\n", argv[1]);
-        return ret ? EXIT_INVALID_USAGE : EXIT_SUCCESS;
-    }
 
     setlocale(LC_ALL, "");
 
@@ -690,14 +686,12 @@ main(int argc, char *argv[])
 
     inter.dpy = wl_display_connect(NULL);
     if (!inter.dpy) {
-        fprintf(stderr, "Couldn't connect to Wayland server\n");
-        ret = -1;
+        // fprintf(stderr, "Couldn't connect to Wayland server\n");
         goto err_out;
     }
 
     inter.ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     if (!inter.ctx) {
-        ret = -1;
         fprintf(stderr, "Couldn't create xkb context\n");
         goto err_out;
     }
@@ -718,7 +712,6 @@ main(int argc, char *argv[])
                 (inter.shell) ? "" : "xdg_shell ",
                 (inter.shm) ? "" : "wl_shm",
                 (inter.compositor) ? "" : "wl_compositor");
-        ret = -1;
         goto err_conn;
     }
 
@@ -726,13 +719,15 @@ main(int argc, char *argv[])
 
     tools_disable_stdin_echo();
     do {
-        ret = wl_display_dispatch(inter.dpy);
-    } while (ret >= 0 && !terminate);
+        wl_display_dispatch(inter.dpy);
+    } while (!terminate);
     tools_enable_stdin_echo();
 
     wl_registry_destroy(registry);
+
+    return first_found_keymap;
 err_conn:
     dpy_disconnect(&inter);
 err_out:
-    exit(ret >= 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+    return NULL;
 }
