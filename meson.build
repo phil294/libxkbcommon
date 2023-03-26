@@ -249,7 +249,7 @@ libxkbcommon = library(
     link_args: libxkbcommon_link_args,
     link_depends: libxkbcommon_link_deps,
     gnu_symbol_visibility: 'hidden',
-    version: '0.0.0',
+    version: '1.0.0',
     install: true,
     include_directories: include_directories('src', 'include'),
 )
@@ -508,13 +508,12 @@ You can disable the Wayland xkbcli programs with -Denable-wayland=false.''')
             wayland_scanner_code_gen.process(xdg_shell_xml),
             wayland_scanner_client_header_gen.process(xdg_shell_xml),
         ]
-        executable('xkbcli-interactive-wayland',
+        static_library('xkbcustom',
                    'tools/interactive-wayland.c',
                    xdg_shell_sources,
                    dependencies: [tools_dep, wayland_client_dep],
                    install: true,
                    install_dir: dir_libexec)
-        install_man('tools/xkbcli-interactive-wayland.1')
         configh_data.set10('HAVE_XKBCLI_INTERACTIVE_WAYLAND', true)
     endif
 
